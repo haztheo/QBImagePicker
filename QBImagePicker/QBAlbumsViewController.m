@@ -99,8 +99,28 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     }
 }
 
+-(void)addActivityViewToView{
+    UIAlertController *pending = [UIAlertController alertControllerWithTitle:nil
+                                                                     message:@"Processing...\n\n"
+                                                              preferredStyle:UIAlertControllerStyleAlert];
+    UIActivityIndicatorView* indicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    indicator.color = [UIColor blackColor];
+    indicator.translatesAutoresizingMaskIntoConstraints=NO;
+    [pending.view addSubview:indicator];
+    NSDictionary * views = @{@"pending" : pending.view, @"indicator" : indicator};
+    
+    NSArray * constraintsVertical = [NSLayoutConstraint constraintsWithVisualFormat:@"V:[indicator]-(20)-|" options:0 metrics:nil views:views];
+    NSArray * constraintsHorizontal = [NSLayoutConstraint constraintsWithVisualFormat:@"H:|[indicator]|" options:0 metrics:nil views:views];
+    NSArray * constraints = [constraintsVertical arrayByAddingObjectsFromArray:constraintsHorizontal];
+    [pending.view addConstraints:constraints];
+    [indicator setUserInteractionEnabled:NO];
+    [indicator startAnimating];
+    [self presentViewController:pending animated:YES completion:nil];
+}
+
 - (IBAction)done:(id)sender
 {
+    [self addActivityViewToView];
     if ([self.imagePickerController.delegate respondsToSelector:@selector(qb_imagePickerController:didFinishPickingAssets:)]) {
         [self.imagePickerController.delegate qb_imagePickerController:self.imagePickerController
                                                didFinishPickingAssets:self.imagePickerController.selectedAssets.array];
@@ -161,7 +181,14 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
             PHAssetCollectionSubtype subtype = assetCollection.assetCollectionSubtype;
             
             if (subtype == PHAssetCollectionSubtypeAlbumRegular) {
-                [userAlbums addObject:assetCollection];
+                NSLog(@"add assetCollection: %@", assetCollection.localizedTitle);
+                PHFetchResult *fetch = [PHAsset fetchAssetsInAssetCollection:assetCollection options:nil];
+                if(fetch.count){
+                    [userAlbums addObject:assetCollection];
+                }
+                else{
+                    NSLog(@"dont add %@", assetCollection.localizedTitle);
+                }
             } else if ([assetCollectionSubtypes containsObject:@(subtype)]) {
                 if (!smartAlbums[@(subtype)]) {
                     smartAlbums[@(subtype)] = [NSMutableArray array];
@@ -172,13 +199,37 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     }
     
     NSMutableArray *assetCollections = [NSMutableArray array];
+    
+    PHFetchOptions *options = [PHFetchOptions new];
+    
+    switch (self.imagePickerController.mediaType) {
+        case QBImagePickerMediaTypeImage:
+            options.predicate = [NSPredicate predicateWithFormat:@"mediaType == %ld", PHAssetMediaTypeImage];
+            break;
+            
+        case QBImagePickerMediaTypeVideo:
+            options.predicate = [NSPredicate predicateWithFormat:@"mediaType == %ld", PHAssetMediaTypeVideo];
+            break;
+            
+        default:
+            break;
+    }
 
     // Fetch smart albums
     for (NSNumber *assetCollectionSubtype in assetCollectionSubtypes) {
         NSArray *collections = smartAlbums[assetCollectionSubtype];
         
         if (collections) {
-            [assetCollections addObjectsFromArray:collections];
+            for(PHAssetCollection*col in collections){
+                PHFetchResult *fetch = [PHAsset fetchAssetsInAssetCollection:col options:nil];
+                NSLog(@"fetch count: %lu", (unsigned long)fetch.count);
+                if(fetch.count){
+                    [assetCollections addObject:col];
+                }
+                else{
+                    NSLog(@"dont add %@", col.localizedTitle);
+                }
+            }
         }
     }
     
@@ -256,9 +307,13 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 - (void)updateControlState
 {
-    self.doneButton.enabled = [self isMinimumSelectionLimitFulfilled];
+    if([self isMinimumSelectionLimitFulfilled]){
+        self.doneButton.tintColor = [UIColor whiteColor];
+    }
+    else{
+        self.doneButton.tintColor = [UIColor clearColor];
+    }
 }
-
 
 #pragma mark - UITableViewDataSource
 

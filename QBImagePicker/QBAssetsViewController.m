@@ -172,11 +172,28 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
             && self.imagePickerController.maximumNumberOfSelection >= self.imagePickerController.minimumNumberOfSelection);
 }
 
-
-#pragma mark - Actions
+-(void)addActivityViewToView{
+    UIAlertController *pending = [UIAlertController alertControllerWithTitle:nil
+                                                                     message:@"Processing...\n\n"
+                                                              preferredStyle:UIAlertControllerStyleAlert];
+    UIActivityIndicatorView* indicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    indicator.color = [UIColor blackColor];
+    indicator.translatesAutoresizingMaskIntoConstraints=NO;
+    [pending.view addSubview:indicator];
+    NSDictionary * views = @{@"pending" : pending.view, @"indicator" : indicator};
+    
+    NSArray * constraintsVertical = [NSLayoutConstraint constraintsWithVisualFormat:@"V:[indicator]-(20)-|" options:0 metrics:nil views:views];
+    NSArray * constraintsHorizontal = [NSLayoutConstraint constraintsWithVisualFormat:@"H:|[indicator]|" options:0 metrics:nil views:views];
+    NSArray * constraints = [constraintsVertical arrayByAddingObjectsFromArray:constraintsHorizontal];
+    [pending.view addConstraints:constraints];
+    [indicator setUserInteractionEnabled:NO];
+    [indicator startAnimating];
+    [self presentViewController:pending animated:YES completion:nil];
+}
 
 - (IBAction)done:(id)sender
 {
+    [self addActivityViewToView];
     if ([self.imagePickerController.delegate respondsToSelector:@selector(qb_imagePickerController:didFinishPickingAssets:)]) {
         [self.imagePickerController.delegate qb_imagePickerController:self.imagePickerController
                                                didFinishPickingAssets:self.imagePickerController.selectedAssets.array];
@@ -277,7 +294,12 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 - (void)updateDoneButtonState
 {
-    self.doneButton.enabled = [self isMinimumSelectionLimitFulfilled];
+    if([self isMinimumSelectionLimitFulfilled]){
+        self.doneButton.tintColor = [UIColor whiteColor];
+    }
+    else{
+        self.doneButton.tintColor = [UIColor clearColor];
+    }
 }
 
 
